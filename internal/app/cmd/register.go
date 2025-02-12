@@ -260,6 +260,7 @@ func registerNoInteractive(ctx context.Context, configFile string, regArgs *regi
 		Token:        regArgs.Token,
 		RunnerName:   regArgs.RunnerName,
 		Labels:       defaultLabels,
+		Ephemeral:    regArgs.Ephemeral,
 	}
 	regArgs.Labels = strings.TrimSpace(regArgs.Labels)
 	// command line flag.
@@ -342,7 +343,7 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 		Version:     ver.Version(),
 		AgentLabels: ls, // Could be removed after Gitea 1.20
 		Labels:      ls,
-		Ephemeral:   inputs.Ephemeral,
+		Ephemeral:   reg.Ephemeral,
 	}))
 	if err != nil {
 		log.WithError(err).Error("poller: cannot register new runner")
