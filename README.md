@@ -26,6 +26,13 @@ make docker
 
 ## Quickstart
 
+Actions are disabled by default, so you need to add the following to the configuration file of your Gitea instance to enable it: 
+  
+```ini
+[actions]
+ENABLED=true
+```
+
 ### Register
 
 ```bash
@@ -36,7 +43,7 @@ And you will be asked to input:
 
 1. Gitea instance URL, like `http://192.168.8.8:3000/`. You should use your gitea instance ROOT_URL as the instance argument
  and you should not use `localhost` or `127.0.0.1` as instance IP;
-2. Runner token, you can get it from `http://192.168.8.8:3000/admin/runners`;
+2. Runner token, you can get it from `http://192.168.8.8:3000/admin/actions/runners`;
 3. Runner name, you can just leave it blank;
 4. Runner labels, you can just leave it blank.
 
@@ -51,9 +58,9 @@ INFO Enter the runner token:
 fe884e8027dc292970d4e0303fe82b14xxxxxxxx
 INFO Enter the runner name (if set empty, use hostname: Test.local):
 
-INFO Enter the runner labels, leave blank to use the default labels (comma-separated, for example, ubuntu-20.04:docker://node:16-bullseye,ubuntu-18.04:docker://node:16-buster,linux_arm:host):
+INFO Enter the runner labels, leave blank to use the default labels (comma-separated, for example, ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest):
 
-INFO Registering runner, name=Test.local, instance=http://192.168.8.8:3000/, labels=[ubuntu-latest:docker://node:16-bullseye ubuntu-22.04:docker://node:16-bullseye ubuntu-20.04:docker://node:16-bullseye ubuntu-18.04:docker://node:16-buster].
+INFO Registering runner, name=Test.local, instance=http://192.168.8.8:3000/, labels=[ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest ubuntu-22.04:docker://docker.gitea.com/runner-images:ubuntu-22.04 ubuntu-20.04:docker://docker.gitea.com/runner-images:ubuntu-20.04].
 DEBU Successfully pinged the Gitea instance server
 INFO Runner registered successfully.
 ```
@@ -93,6 +100,8 @@ You can specify the configuration file path with `-c`/`--config` argument.
 ./act_runner -c config.yaml register # register with config file
 ./act_runner -c config.yaml daemon # run with config file
 ```
+
+You can read the latest version of the configuration file online at [config.example.yaml](internal/pkg/config/config.example.yaml).
 
 ### Example Deployments
 

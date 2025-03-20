@@ -15,7 +15,7 @@ import (
 
 	pingv1 "code.gitea.io/actions-proto-go/ping/v1"
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -75,6 +75,7 @@ type registerArgs struct {
 	Token         string
 	RunnerName    string
 	Labels        string
+	Ephemeral     bool
 }
 
 type registerStage int8
@@ -91,10 +92,9 @@ const (
 )
 
 var defaultLabels = []string{
-	"ubuntu-latest:docker://node:16-bullseye",
-	"ubuntu-22.04:docker://node:16-bullseye", // There's no node:16-bookworm yet
-	"ubuntu-20.04:docker://node:16-bullseye",
-	"ubuntu-18.04:docker://node:16-buster",
+	"ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest",
+	"ubuntu-22.04:docker://docker.gitea.com/runner-images:ubuntu-22.04",
+	"ubuntu-20.04:docker://docker.gitea.com/runner-images:ubuntu-20.04",
 }
 
 type registerInputs struct {
@@ -102,6 +102,7 @@ type registerInputs struct {
 	Token        string
 	RunnerName   string
 	Labels       []string
+	Ephemeral    bool
 }
 
 func (r *registerInputs) validate() error {
@@ -179,7 +180,7 @@ func (r *registerInputs) assignToNext(stage registerStage, value string, cfg *co
 		}
 
 		if validateLabels(r.Labels) != nil {
-			log.Infoln("Invalid labels, please input again, leave blank to use the default labels (for example, ubuntu-20.04:docker://node:16-bullseye,ubuntu-18.04:docker://node:16-buster,linux_arm:host)")
+			log.Infoln("Invalid labels, please input again, leave blank to use the default labels (for example, ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest)")
 			return StageInputLabels
 		}
 		return StageWaitingForRegistration
@@ -243,7 +244,7 @@ func printStageHelp(stage registerStage) {
 		hostname, _ := os.Hostname()
 		log.Infof("Enter the runner name (if set empty, use hostname: %s):\n", hostname)
 	case StageInputLabels:
-		log.Infoln("Enter the runner labels, leave blank to use the default labels (comma-separated, for example, ubuntu-20.04:docker://node:16-bullseye,ubuntu-18.04:docker://node:16-buster,linux_arm:host):")
+		log.Infoln("Enter the runner labels, leave blank to use the default labels (comma-separated, for example, ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest):")
 	case StageWaitingForRegistration:
 		log.Infoln("Waiting for registration...")
 	}
@@ -259,6 +260,7 @@ func registerNoInteractive(ctx context.Context, configFile string, regArgs *regi
 		Token:        regArgs.Token,
 		RunnerName:   regArgs.RunnerName,
 		Labels:       defaultLabels,
+		Ephemeral:    regArgs.Ephemeral,
 	}
 	regArgs.Labels = strings.TrimSpace(regArgs.Labels)
 	// command line flag.
@@ -322,10 +324,11 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 	}
 
 	reg := &config.Registration{
-		Name:    inputs.RunnerName,
-		Token:   inputs.Token,
-		Address: inputs.InstanceAddr,
-		Labels:  inputs.Labels,
+		Name:      inputs.RunnerName,
+		Token:     inputs.Token,
+		Address:   inputs.InstanceAddr,
+		Labels:    inputs.Labels,
+		Ephemeral: inputs.Ephemeral,
 	}
 
 	ls := make([]string, len(reg.Labels))
@@ -340,6 +343,7 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 		Version:     ver.Version(),
 		AgentLabels: ls, // Could be removed after Gitea 1.20
 		Labels:      ls,
+		Ephemeral:   reg.Ephemeral,
 	}))
 	if err != nil {
 		log.WithError(err).Error("poller: cannot register new runner")
@@ -350,6 +354,11 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 	reg.UUID = resp.Msg.Runner.Uuid
 	reg.Name = resp.Msg.Runner.Name
 	reg.Token = resp.Msg.Runner.Token
+
+	if inputs.Ephemeral != resp.Msg.Runner.Ephemeral {
+		// TODO we cannot remove the configuration via runner api, if we return an error here we just fill the database
+		log.Error("poller: cannot register new runner as ephemeral upgrade Gitea to gain security, run-once will be used automatically")
+	}
 
 	if err := config.SaveRegistration(cfg.Runner.File, reg); err != nil {
 		return fmt.Errorf("failed to save runner config: %w", err)

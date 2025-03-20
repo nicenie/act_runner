@@ -1,10 +1,12 @@
-act_runner
+/act_runner
 .env
 .runner
 coverage.txt
 /gitea-vet
 /config.yaml
 
+# Jetbrains
+.idea
 # MS VSCode
 .vscode
 __debug_bin
