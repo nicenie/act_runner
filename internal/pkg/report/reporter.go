@@ -97,6 +97,10 @@ func (r *Reporter) Fire(entry *log.Entry) error {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
 
+  if entry.Level != log.GetLevel() {
+    return nil
+  }
+
 	log.WithFields(entry.Data).Trace(entry.Message)
 
 	timestamp := entry.Time

@@ -156,18 +156,19 @@ func TestReporter_parseLogRow(t *testing.T) {
 }
 
 func TestReporter_Fire(t *testing.T) {
+	client := mocks.NewClient(t)
+	client.On("UpdateLog", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateLogRequest]) (*connect_go.Response[runnerv1.UpdateLogResponse], error) {
+		t.Logf("Received UpdateLog: %s", req.Msg.String())
+		return connect_go.NewResponse(&runnerv1.UpdateLogResponse{
+			AckIndex: req.Msg.Index + int64(len(req.Msg.Rows)),
+		}), nil
+	})
+	client.On("UpdateTask", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateTaskRequest]) (*connect_go.Response[runnerv1.UpdateTaskResponse], error) {
+		t.Logf("Received UpdateTask: %s", req.Msg.String())
+		return connect_go.NewResponse(&runnerv1.UpdateTaskResponse{}), nil
+	})
+
 	t.Run("ignore command lines", func(t *testing.T) {
-		client := mocks.NewClient(t)
-		client.On("UpdateLog", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateLogRequest]) (*connect_go.Response[runnerv1.UpdateLogResponse], error) {
-			t.Logf("Received UpdateLog: %s", req.Msg.String())
-			return connect_go.NewResponse(&runnerv1.UpdateLogResponse{
-				AckIndex: req.Msg.Index + int64(len(req.Msg.Rows)),
-			}), nil
-		})
-		client.On("UpdateTask", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateTaskRequest]) (*connect_go.Response[runnerv1.UpdateTaskResponse], error) {
-			t.Logf("Received UpdateTask: %s", req.Msg.String())
-			return connect_go.NewResponse(&runnerv1.UpdateTaskResponse{}), nil
-		})
 		ctx, cancel := context.WithCancel(context.Background())
 		taskCtx, err := structpb.NewStruct(map[string]interface{}{})
 		require.NoError(t, err)
@@ -185,13 +186,45 @@ func TestReporter_Fire(t *testing.T) {
 			"raw_output": true,
 		}
 
-		assert.NoError(t, reporter.Fire(&log.Entry{Message: "regular log line", Data: dataStep0}))
-		assert.NoError(t, reporter.Fire(&log.Entry{Message: "::debug::debug log line", Data: dataStep0}))
-		assert.NoError(t, reporter.Fire(&log.Entry{Message: "regular log line", Data: dataStep0}))
-		assert.NoError(t, reporter.Fire(&log.Entry{Message: "::debug::debug log line", Data: dataStep0}))
-		assert.NoError(t, reporter.Fire(&log.Entry{Message: "::debug::debug log line", Data: dataStep0}))
-		assert.NoError(t, reporter.Fire(&log.Entry{Message: "regular log line", Data: dataStep0}))
+		assert.NoError(t, reporter.Fire(&log.Entry{Message: "regular log line", Data: dataStep0, Level: log.InfoLevel}))
+		assert.NoError(t, reporter.Fire(&log.Entry{Message: "::debug::debug log line", Data: dataStep0, Level: log.InfoLevel}))
+		assert.NoError(t, reporter.Fire(&log.Entry{Message: "regular log line", Data: dataStep0, Level: log.InfoLevel}))
+		assert.NoError(t, reporter.Fire(&log.Entry{Message: "::debug::debug log line", Data: dataStep0, Level: log.InfoLevel}))
+		assert.NoError(t, reporter.Fire(&log.Entry{Message: "::debug::debug log line", Data: dataStep0, Level: log.InfoLevel}))
+		assert.NoError(t, reporter.Fire(&log.Entry{Message: "regular log line", Data: dataStep0, Level: log.InfoLevel}))
 
 		assert.Equal(t, int64(3), reporter.state.Steps[0].LogLength)
+	})
+
+	t.Run("ignore unmatched global log level", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		taskCtx, err := structpb.NewStruct(map[string]interface{}{})
+		require.NoError(t, err)
+		reporter := NewReporter(ctx, cancel, client, &runnerv1.Task{
+			Context: taskCtx,
+		})
+		defer func() {
+			assert.NoError(t, reporter.Close(""))
+		}()
+		reporter.ResetSteps(5)
+
+		dataStep0 := map[string]interface{}{
+			"stage":      "Main",
+			"stepNumber": 0,
+			"raw_output": true,
+		}
+
+    defer func() {
+      // restore to default log level
+			log.SetLevel(log.InfoLevel)
+		}()
+
+    log.SetLevel(log.WarnLevel)
+
+		assert.NoError(t, reporter.Fire(&log.Entry{Message: "::debug::debug log line", Data: dataStep0, Level: log.DebugLevel}))
+		assert.NoError(t, reporter.Fire(&log.Entry{Message: "::info::info log line", Data: dataStep0, Level: log.InfoLevel}))
+		assert.NoError(t, reporter.Fire(&log.Entry{Message: "::warn::warn log line", Data: dataStep0, Level: log.WarnLevel}))
+
+		assert.Equal(t, int64(1), reporter.state.Steps[0].LogLength)
 	})
 }
