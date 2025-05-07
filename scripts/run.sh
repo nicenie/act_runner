@@ -17,6 +17,11 @@ if [[ ! -z "${GITEA_RUNNER_LABELS}" ]]; then
   EXTRA_ARGS="${EXTRA_ARGS} --labels ${GITEA_RUNNER_LABELS}"
 fi
 
+# Add --ephemeral if GITEA_RUNNER_EPHEMERAL is set to true
+if [[ "${GITEA_RUNNER_EPHEMERAL}" == "true" ]]; then
+  EXTRA_ARGS="${EXTRA_ARGS} --ephemeral"
+fi
+
 # In case no token is set, it's possible to read the token from a file, i.e. a Docker Secret
 if [[ -z "${GITEA_RUNNER_REGISTRATION_TOKEN}" ]] && [[ -f "${GITEA_RUNNER_REGISTRATION_TOKEN_FILE}" ]]; then
   GITEA_RUNNER_REGISTRATION_TOKEN=$(cat "${GITEA_RUNNER_REGISTRATION_TOKEN_FILE}")
