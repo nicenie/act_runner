@@ -60,7 +60,8 @@ type Container struct {
 
 // Host represents the configuration for the host.
 type Host struct {
-	WorkdirParent string `yaml:"workdir_parent"` // WorkdirParent specifies the parent directory for the host's working directory.
+	WorkdirParent    string `yaml:"workdir_parent"`    // WorkdirParent specifies the parent directory for the host's working directory.
+	ActionsOfflineMode bool   `yaml:"actions_offline_mode"` // ActionsOfflineMode indicates whether to run in offline mode, avoiding network access for actions.
 }
 
 // Config represents the overall configuration.

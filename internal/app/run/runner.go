@@ -203,6 +203,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		Workdir:        filepath.FromSlash(fmt.Sprintf("/%s/%s", strings.TrimLeft(r.cfg.Container.WorkdirParent, "/"), preset.Repository)),
 		BindWorkdir:    false,
 		ActionCacheDir: filepath.FromSlash(r.cfg.Host.WorkdirParent),
+		ActionOfflineMode: r.cfg.Host.ActionsOfflineMode,
 
 		ReuseContainers:       false,
 		ForcePull:             r.cfg.Container.ForcePull,
